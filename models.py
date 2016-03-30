@@ -29,10 +29,11 @@ class Game(ndb.Model):
 
 
     @classmethod
-    def new_game(cls, player_x, player_o):
+    def new_game(cls, player_x, player_o, next_turn):
         """Creates and returns a new game"""
         game = Game(player_x=player_x,
                     player_o=player_o,
+                    next_turn=next_turn,
                     game_over=False)
         game.put()
         return game
@@ -99,12 +100,12 @@ class NewGameForm(messages.Message):
     # attempts = messages.IntegerField(4, default=5)
 
 
-# class MakeMoveForm(messages.Message):
-#     """Used to make a move in an existing game"""
-#     move = messages.IntegerField(1, required=True)
-#     player_name = messages.StringField(2, required=True)
-#     urlsafe_game_key = messages.StringField(3, required=True)
-#     user_name = messages.StringField(4, required=True)
+class MakeMoveForm(messages.Message):
+    """Used to make a move in an existing game"""
+    move = messages.IntegerField(1, required=True)
+    player_name = messages.StringField(2, required=True)
+    urlsafe_game_key = messages.StringField(3, required=True)
+    user_name = messages.StringField(4, required=True)
 
 
 

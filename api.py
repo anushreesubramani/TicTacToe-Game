@@ -11,17 +11,17 @@ from google.appengine.api import memcache
 from google.appengine.api import taskqueue
 
 from models import User, Game #, Score
-from models import NewGameForm, GameForm, StringMessage
-# , MakeMoveForm,\
+from models import NewGameForm, GameForm, StringMessage, MakeMoveForm
+# , ,\
 #     ScoreForms
 from utils import get_by_urlsafe
 
 NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
 # GET_GAME_REQUEST = endpoints.ResourceContainer(
 #         urlsafe_game_key=messages.StringField(1),)
-# MAKE_MOVE_REQUEST = endpoints.ResourceContainer(
-#     MakeMoveForm,
-#     urlsafe_game_key=messages.StringField(1),)
+MAKE_MOVE_REQUEST = endpoints.ResourceContainer(
+    MakeMoveForm,
+    urlsafe_game_key=messages.StringField(1),)
 USER_REQUEST = endpoints.ResourceContainer(user_name=messages.StringField(1),
                                            email=messages.StringField(2))
 
@@ -58,15 +58,15 @@ class TicTacToeApi(remote.Service):
         player_o = User.query(User.name == request.player_o).get()
         if not player_x:
             raise endpoints.NotFoundException(
-                    'A User with name {} does not exist!'.format(player_x))
+                    'A User with name {} does not exist!'.format(request.player_x))
         if not player_o:
             raise endpoints.NotFoundException(
-                    'A User with name {} does not exist!'.format(player_o))
+                    'A User with name {} does not exist!'.format(request.player_o))
         if player_x == player_o:
             raise endpoints.BadRequestException('Game can be played by 2'
                                                 ' different players only.')
         # try:
-        game = Game.new_game(player_x.key, player_o.key)
+        game = Game.new_game(player_x.key, player_o.key, request.player_x)
         # except ValueError:
         #     raise endpoints.BadRequestException('Maximum must be greater '
         #                                         'than minimum!')
@@ -95,28 +95,27 @@ class TicTacToeApi(remote.Service):
     #                   path='game/{urlsafe_game_key}',
     #                   name='make_move',
     #                   http_method='PUT')
-    # def make_move(self, request):
-    #     """Makes a move. Returns a game state with message"""
-    #     game = get_by_urlsafe(request.urlsafe_game_key, Game)
-    #     if game.game_over:
-    #         return game.to_form('Game already over!')
+    def make_move(self, request):
+        """Makes a move. Returns a game state with message"""
+        game = get_by_urlsafe(request.urlsafe_game_key, Game)
+        if game.game_over:
+            return game.to_form('Game already over!')
 
-    #     game.attempts_remaining -= 1
-    #     if request.guess == game.target:
-    #         game.end_game(True)
-    #         return game.to_form('You win!')
+        if request.guess == game.target:
+            game.end_game(True)
+            return game.to_form('You win!')
 
-    #     if request.guess < game.target:
-    #         msg = 'Too low!'
-    #     else:
-    #         msg = 'Too high!'
+        if request.guess < game.target:
+            msg = 'Too low!'
+        else:
+            msg = 'Too high!'
 
-    #     if game.attempts_remaining < 1:
-    #         game.end_game(False)
-    #         return game.to_form(msg + ' Game over!')
-    #     else:
-    #         game.put()
-    #         return game.to_form(msg)
+        if game.attempts_remaining < 1:
+            game.end_game(False)
+            return game.to_form(msg + ' Game over!')
+        else:
+            game.put()
+            return game.to_form(msg)
 
     # @endpoints.method(response_message=ScoreForms,
     #                   path='scores',
