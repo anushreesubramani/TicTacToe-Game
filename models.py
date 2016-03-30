@@ -7,12 +7,12 @@ from datetime import date
 from protorpc import messages
 from google.appengine.ext import ndb
 
-
 class User(ndb.Model):
     """User profile"""
     name = ndb.StringProperty(required=True)
     #  Email is an optional field for User
     email = ndb.StringProperty()
+    score = ndb.IntegerProperty(default=0)
 
     def __eq__(self, other) :
         return self.__dict__ == other.__dict__
@@ -23,9 +23,10 @@ class Game(ndb.Model):
     winner = ndb.StringProperty(required=True, default="")
     next_turn = ndb.StringProperty(required=True, default="")
     game_over = ndb.BooleanProperty(required=True, default=False)
-    board = ndb.JsonProperty(required=True, default="['','','','','','','','','']")
+    board = ndb.JsonProperty(required=True, default=['-','-','-','-','-','-','-','-','-'])
     player_x = ndb.KeyProperty(required=True, kind='User')
     player_o = ndb.KeyProperty(required=True, kind='User')
+    number_of_moves = ndb.IntegerProperty(required=True, default=0)
 
 
     @classmethod
@@ -46,41 +47,36 @@ class Game(ndb.Model):
         form.player_o = self.player_o.get().name
         form.game_over = self.game_over
         form.next_turn = self.next_turn
-        form.board = self.board
+        form.board = ','.join(self.board)
         form.winner = self.winner
         form.message = message
         return form
 
-#     def end_game(self, won=False):
-#         """Ends the game - if won is True, the player won. - if won is False,
-#         the player lost."""
-#         self.game_over = True
-#         self.put()
-#         # Add the game to the score 'board'
-#         score = Score(user=self.user, date=date.today(), won=won,
-#                       guesses=self.attempts_allowed - self.attempts_remaining)
-#         score.put()
+    def end_game(self, won=False):
+        """Ends the game - if won is True, the player won. - if won is False,
+        the player lost."""
+        self.game_over = True
+        self.put()
+        # Add the game to the score 'board'
+        # score = Score(user=self.user, date=date.today(), won=won,
+        #               guesses=self.attempts_allowed - self.attempts_remaining)
+        # score.put()
 
 
-# class Score(ndb.Model):
-#     """Score object"""
-#     user = ndb.KeyProperty(required=True, kind='User')
-#     date = ndb.DateProperty(required=True)
-#     won = ndb.BooleanProperty(required=True)
-#     guesses = ndb.IntegerProperty(required=True)
+class Score(ndb.Model):
+    """Score object"""
+    user = ndb.KeyProperty(required=True, kind='User')
+    date = ndb.DateProperty(required=True)
+    won = ndb.BooleanProperty(required=True)
+    guesses = ndb.IntegerProperty(required=True)
 
-#     def to_form(self):
-#         return ScoreForm(user_name=self.user.get().name, won=self.won,
-#                          date=str(self.date), guesses=self.guesses)
+    def to_form(self):
+        return ScoreForm(user_name=self.user.get().name, won=self.won,
+                         date=str(self.date), guesses=self.guesses)
 
 
 class GameForm(messages.Message):
     """GameForm for outbound game state information"""
-    # urlsafe_key = messages.StringField(1, required=True)
-    # attempts_remaining = messages.IntegerField(2, required=True)
-    # game_over = messages.BooleanField(3, required=True)
-    # message = messages.StringField(4, required=True)
-    # user_name = messages.StringField(5, required=True)
 
     game_over = messages.BooleanField(1, required=True)
     winner = messages.StringField(2, required=True)
@@ -94,18 +90,15 @@ class GameForm(messages.Message):
 
 class NewGameForm(messages.Message):
     """Used to create a new game"""
-    # user_name = messages.StringField(1, required=True)
     player_x = messages.StringField(1, required=True)
     player_o = messages.StringField(2, required=True)
-    # attempts = messages.IntegerField(4, default=5)
 
 
 class MakeMoveForm(messages.Message):
     """Used to make a move in an existing game"""
     move = messages.IntegerField(1, required=True)
     player_name = messages.StringField(2, required=True)
-    urlsafe_game_key = messages.StringField(3, required=True)
-    user_name = messages.StringField(4, required=True)
+
 
 
 
