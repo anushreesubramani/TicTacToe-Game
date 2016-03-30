@@ -20,8 +20,8 @@ class User(ndb.Model):
 
 class Game(ndb.Model):
     """Game object"""
-    winner = ndb.IntegerProperty(required=True, default="")
-    next_turn = ndb.IntegerProperty(required=True, default="")
+    winner = ndb.StringProperty(required=True, default="")
+    next_turn = ndb.StringProperty(required=True, default="")
     game_over = ndb.BooleanProperty(required=True, default=False)
     board = ndb.JsonProperty(required=True, default="['','','','','','','','','']")
     player_x = ndb.KeyProperty(required=True, kind='User')
@@ -88,6 +88,7 @@ class GameForm(messages.Message):
     player_x = messages.StringField(5, required=True)
     player_o = messages.StringField(6, required=True)
     urlsafe_key = messages.StringField(7, required=True)
+    message = messages.StringField(8, required=True)
 
 
 class NewGameForm(messages.Message):
@@ -120,6 +121,6 @@ class NewGameForm(messages.Message):
 #     items = messages.MessageField(ScoreForm, 1, repeated=True)
 
 
-# class StringMessage(messages.Message):
-#     """StringMessage-- outbound (single) string message"""
-#     message = messages.StringField(1, required=True)
+class StringMessage(messages.Message):
+    """StringMessage-- outbound (single) string message"""
+    message = messages.StringField(1, required=True)

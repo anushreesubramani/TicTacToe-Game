@@ -10,9 +10,10 @@ from protorpc import remote, messages
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
 
-from models import User, Game, Score
-from models import StringMessage, NewGameForm, GameForm, MakeMoveForm,\
-    ScoreForms
+from models import User, Game #, Score
+from models import NewGameForm, GameForm, StringMessage
+# , MakeMoveForm,\
+#     ScoreForms
 from utils import get_by_urlsafe
 
 NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
@@ -21,8 +22,8 @@ NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
 # MAKE_MOVE_REQUEST = endpoints.ResourceContainer(
 #     MakeMoveForm,
 #     urlsafe_game_key=messages.StringField(1),)
-# USER_REQUEST = endpoints.ResourceContainer(user_name=messages.StringField(1),
-#                                            email=messages.StringField(2))
+USER_REQUEST = endpoints.ResourceContainer(user_name=messages.StringField(1),
+                                           email=messages.StringField(2))
 
 # MEMCACHE_MOVES_REMAINING = 'MOVES_REMAINING'
 
@@ -53,12 +54,15 @@ class TicTacToeApi(remote.Service):
                       http_method='POST')
     def new_game(self, request):
         """Creates new game"""
-        player_x = User.query(request.player_x).get()
-        player_o = User.query(request.player_o).get()
-        if not (player_x or player_o):
+        player_x = User.query(User.name == request.player_x).get()
+        player_o = User.query(User.name == request.player_o).get()
+        if not player_x:
             raise endpoints.NotFoundException(
-                    'A User with that name does not exist!')
-        if player_x == player_o
+                    'A User with name {} does not exist!'.format(player_x))
+        if not player_o:
+            raise endpoints.NotFoundException(
+                    'A User with name {} does not exist!'.format(player_o))
+        if player_x == player_o:
             raise endpoints.BadRequestException('Game can be played by 2'
                                                 ' different players only.')
         # try:
