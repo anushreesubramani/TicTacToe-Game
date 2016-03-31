@@ -10,24 +10,21 @@ from protorpc import remote, messages
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
 
-from models import User, Game #, Score
-from models import NewGameForm, GameForm, StringMessage, MakeMoveForm
-# , ,\
-#     ScoreForms
+from models import User, Game, Score
+from models import NewGameForm, GameForm, StringMessage, MakeMoveForm, ScoreForms
 from utils import get_by_urlsafe
 
 NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
-# GET_GAME_REQUEST = endpoints.ResourceContainer(
-#         urlsafe_game_key=messages.StringField(1),)
-MAKE_MOVE_REQUEST = endpoints.ResourceContainer(
-    MakeMoveForm,
-    urlsafe_game_key=messages.StringField(1),)
+GET_GAME_REQUEST = endpoints.ResourceContainer(
+                   urlsafe_game_key=messages.StringField(1),)
+MAKE_MOVE_REQUEST = endpoints.ResourceContainer(MakeMoveForm,
+                    urlsafe_game_key=messages.StringField(1),)
 USER_REQUEST = endpoints.ResourceContainer(user_name=messages.StringField(1),
                                            email=messages.StringField(2))
 
-# MEMCACHE_MOVES_REMAINING = 'MOVES_REMAINING'
+MEMCACHE_MOVES_REMAINING = 'MOVES_REMAINING'
 
-@endpoints.api(name='guess_a_number', version='v1')
+@endpoints.api(name='tictactoe', version='v1')
 class TicTacToeApi(remote.Service):
     """Game API"""
     @endpoints.method(request_message=USER_REQUEST,
@@ -40,8 +37,6 @@ class TicTacToeApi(remote.Service):
         if User.query(User.name == request.user_name).get():
             raise endpoints.ConflictException(
                     'A User with that name already exists!')
-        # if not request.user_name:
-        #     raise endpoints.BadRequestException('Please provide a user name')
         user = User(name=request.user_name, email=request.email)
         user.put()
         return StringMessage(message='User {} created!'.format(
@@ -65,16 +60,12 @@ class TicTacToeApi(remote.Service):
         if player_x == player_o:
             raise endpoints.BadRequestException('Game can be played by 2'
                                                 ' different players only.')
-        # try:
         game = Game.new_game(player_x.key, player_o.key, request.player_x)
-        # except ValueError:
-        #     raise endpoints.BadRequestException('Maximum must be greater '
-        #                                         'than minimum!')
 
         # Use a task queue to update the average attempts remaining.
         # This operation is not needed to complete the creation of a new game
         # so it is performed out of sequence.
-        # taskqueue.add(url='/tasks/cache_average_attempts')
+        taskqueue.add(url='/tasks/cache_average_moves')
         return game.to_form('Good luck playing TicTacToe!')
 
     @endpoints.method(request_message=GET_GAME_REQUEST,
@@ -85,7 +76,7 @@ class TicTacToeApi(remote.Service):
     def get_game(self, request):
         """Return the current game state."""
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
-        if game:
+        if game and game.game_over == False:
             return game.to_form('Time to make a move!')
         else:
             raise endpoints.NotFoundException('Game not found!')
@@ -99,7 +90,6 @@ class TicTacToeApi(remote.Service):
         """Makes a move. Returns a game state with message"""
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
         if game.game_over:
-            game.next_turn = ""
             return game.to_form('Game already over!')
 
         win_combinations = [
@@ -116,28 +106,21 @@ class TicTacToeApi(remote.Service):
           [2,4,6]
         ]
 
-        # if game.player_x != request.player_name and game.player_o != request.player_name:
-        #     raise endpoints.BadRequestException('Your not a valid player for this game')
-
         if request.move not in range(1, 10):
             raise endpoints.BadRequestException('Wrong move. Move should be within 1 to 9')
 
         game.number_of_moves += 1
         if game.board[request.move - 1] == '-':
             if game.player_x.get().name == request.player_name:
-                if game.next_turn == request.player_name:
-                    game.board[request.move - 1] = 'X'
-                    indices = [i for i, j in enumerate(game.board) if j == 'X']
-                    game.next_turn = game.player_o.get().name
-                else:
-                    raise endpoints.BadRequestException('This is not your turn!')
+                symbol = 'X'
+                next_player = 'player_o'
+                current_player_key = game.player_x
+                indices, game = self.play_move(symbol, next_player, game, request)
             elif game.player_o.get().name == request.player_name:
-                if game.next_turn == request.player_name:
-                    game.board[request.move - 1] = 'O'
-                    indices = [i for i, j in enumerate(game.board) if j == 'O']
-                    game.next_turn = game.player_x.get().name
-                else:
-                    raise endpoints.BadRequestException('This is not your turn!')
+                symbol = 'O'
+                next_player = 'player_x'
+                current_player_key = game.player_o
+                indices, game = self.play_move(symbol, next_player, game, request)
             else:
                 raise endpoints.BadRequestException('Your not a valid player for this game')
 
@@ -145,10 +128,11 @@ class TicTacToeApi(remote.Service):
                 for combination in win_combinations:
                     if len(set(indices).intersection(combination)) == 3:
                         game.winner = request.player_name
-                        game.end_game(True)
-                        winner = User.query(User.name == request.player_name).get()
-                        winner.score += 1
-                        winner.put()
+                        game.next_turn = ""
+                        if current_player_key == game.player_x:
+                            game.end_game(current_player_key, game.player_o, True)
+                        else:
+                            game.end_game(game.player_o, current_player_key, True)
                         return game.to_form('Congrats! You have won!')
 
         else:
@@ -156,74 +140,65 @@ class TicTacToeApi(remote.Service):
 
         if game.number_of_moves == 9:
             game.message = "Game over. It was a tie!"
-            game.end_game('True')
+            game.next_turn = ""
+            game.end_game(game.player_x, game.player_o, False)
 
         game.put()
         return game.to_form('Come on, You can win this! Give it your best shot!')
 
 
+    def play_move(self, symbol, next_player, game, request):
+        if game.next_turn == request.player_name:
+            game.board[request.move - 1] = symbol
+            indices = [i for i, j in enumerate(game.board) if j == symbol]
+            next_player_key = getattr(game, next_player)
+            game.next_turn = next_player_key.get().name
+            return indices, game
+        else:
+            raise endpoints.BadRequestException('This is not your turn!')
 
 
+    @endpoints.method(response_message=ScoreForms,
+                      path='scores',
+                      name='get_scores',
+                      http_method='GET')
+    def get_scores(self, request):
+        """Return all scores"""
+        return ScoreForms(items=[score.to_form() for score in Score.query()])
 
+    @endpoints.method(request_message=USER_REQUEST,
+                      response_message=ScoreForms,
+                      path='scores/user/{user_name}',
+                      name='get_user_scores',
+                      http_method='GET')
+    def get_user_scores(self, request):
+        """Returns all of an individual User's scores"""
+        user = User.query(User.name == request.user_name).get()
+        if not user:
+            raise endpoints.NotFoundException(
+                    'A User with that name does not exist!')
+        scores = Score.query(Score.user == user.key)
+        return ScoreForms(items=[score.to_form() for score in scores])
 
+    @endpoints.method(response_message=StringMessage,
+                      path='games/average_attempts',
+                      name='get_average_moves_remaining',
+                      http_method='GET')
+    def get_average_attempts(self, request):
+        """Get the cached average moves remaining"""
+        return StringMessage(message=memcache.get(MEMCACHE_MOVES_REMAINING) or '')
 
-        # if request.guess == game.target:
-        #     game.end_game(True)
-        #     return game.to_form('You win!')
-
-        # if request.guess < game.target:
-        #     msg = 'Too low!'
-        # else:
-        #     msg = 'Too high!'
-
-        # if game.attempts_remaining < 1:
-        #     game.end_game(False)
-        #     return game.to_form(msg + ' Game over!')
-        # else:
-        #     game.put()
-        #     return game.to_form(msg)
-
-    # @endpoints.method(response_message=ScoreForms,
-    #                   path='scores',
-    #                   name='get_scores',
-    #                   http_method='GET')
-    # def get_scores(self, request):
-    #     """Return all scores"""
-    #     return ScoreForms(items=[score.to_form() for score in Score.query()])
-
-    # @endpoints.method(request_message=USER_REQUEST,
-    #                   response_message=ScoreForms,
-    #                   path='scores/user/{user_name}',
-    #                   name='get_user_scores',
-    #                   http_method='GET')
-    # def get_user_scores(self, request):
-    #     """Returns all of an individual User's scores"""
-    #     user = User.query(User.name == request.user_name).get()
-    #     if not user:
-    #         raise endpoints.NotFoundException(
-    #                 'A User with that name does not exist!')
-    #     scores = Score.query(Score.user == user.key)
-    #     return ScoreForms(items=[score.to_form() for score in scores])
-
-    # @endpoints.method(response_message=StringMessage,
-    #                   path='games/average_attempts',
-    #                   name='get_average_attempts_remaining',
-    #                   http_method='GET')
-    # def get_average_attempts(self, request):
-    #     """Get the cached average moves remaining"""
-    #     return StringMessage(message=memcache.get(MEMCACHE_MOVES_REMAINING) or '')
-
-    # @staticmethod
-    # def _cache_average_attempts():
-    #     """Populates memcache with the average moves remaining of Games"""
-    #     games = Game.query(Game.game_over == False).fetch()
-    #     if games:
-    #         count = len(games)
-    #         total_attempts_remaining = sum([game.attempts_remaining
-    #                                     for game in games])
-    #         average = float(total_attempts_remaining)/count
-    #         memcache.set(MEMCACHE_MOVES_REMAINING,
-    #                      'The average moves remaining is {:.2f}'.format(average))
+    @staticmethod
+    def _cache_average_moves():
+        """Populates memcache with the average moves remaining of Games"""
+        games = Game.query(Game.game_over == False).fetch()
+        if games:
+            count = len(games)
+            total_moves_remaining = sum([9 - game.number_of_moves
+                                        for game in games])
+            average = float(total_moves_remaining)/count
+            memcache.set(MEMCACHE_MOVES_REMAINING,
+                         'The average moves remaining is {:.2f}'.format(average))
 
 
 api = endpoints.api_server([TicTacToeApi])

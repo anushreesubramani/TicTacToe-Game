@@ -12,7 +12,7 @@ class User(ndb.Model):
     name = ndb.StringProperty(required=True)
     #  Email is an optional field for User
     email = ndb.StringProperty()
-    score = ndb.IntegerProperty(default=0)
+    # score = ndb.IntegerProperty(default=0)
 
     def __eq__(self, other) :
         return self.__dict__ == other.__dict__
@@ -52,27 +52,41 @@ class Game(ndb.Model):
         form.message = message
         return form
 
-    def end_game(self, won=False):
+    def end_game(self, winner_key, loser_key, won=False):
         """Ends the game - if won is True, the player won. - if won is False,
         the player lost."""
         self.game_over = True
         self.put()
         # Add the game to the score 'board'
-        # score = Score(user=self.user, date=date.today(), won=won,
-        #               guesses=self.attempts_allowed - self.attempts_remaining)
-        # score.put()
+        if won:
+            score_x = Score(user=winner_key, date=date.today(), won=won,
+                          number_of_moves=self.number_of_moves)
+            score_o = Score(user=loser_key, date=date.today(), won=False,
+                          number_of_moves=self.number_of_moves)
+        else:
+            # This is in case of a tie. There is no winner.
+            # Consider Both of them to lose.
+            score_x = Score(user=winner_key, date=date.today(), won=False,
+                          number_of_moves=self.number_of_moves)
+            score_o = Score(user=loser_key, date=date.today(), won=False,
+                          number_of_moves=self.number_of_moves)
+        score_x.put()
+        score_o.put()
 
 
 class Score(ndb.Model):
     """Score object"""
     user = ndb.KeyProperty(required=True, kind='User')
+    # user = ndb.StringProperty(required=True)
+    # game = ndb.KeyProperty(required=True, kind='Game')
     date = ndb.DateProperty(required=True)
     won = ndb.BooleanProperty(required=True)
-    guesses = ndb.IntegerProperty(required=True)
+    number_of_moves = ndb.IntegerProperty(required=True, default=0)
 
     def to_form(self):
-        return ScoreForm(user_name=self.user.get().name, won=self.won,
-                         date=str(self.date), guesses=self.guesses)
+        return ScoreForm(user_name=self.user.get().name, date=str(self.date),
+                         won=self.won,
+                         number_of_moves=self.number_of_moves)
 
 
 class GameForm(messages.Message):
@@ -100,19 +114,17 @@ class MakeMoveForm(messages.Message):
     player_name = messages.StringField(2, required=True)
 
 
+class ScoreForm(messages.Message):
+    """ScoreForm for outbound Score information"""
+    user_name = messages.StringField(1, required=True)
+    date = messages.StringField(2, required=True)
+    won = messages.BooleanField(3, required=True)
+    number_of_moves = messages.IntegerField(4, required=True)
 
 
-# class ScoreForm(messages.Message):
-#     """ScoreForm for outbound Score information"""
-#     user_name = messages.StringField(1, required=True)
-#     date = messages.StringField(2, required=True)
-#     won = messages.BooleanField(3, required=True)
-#     guesses = messages.IntegerField(4, required=True)
-
-
-# class ScoreForms(messages.Message):
-#     """Return multiple ScoreForms"""
-#     items = messages.MessageField(ScoreForm, 1, repeated=True)
+class ScoreForms(messages.Message):
+    """Return multiple ScoreForms"""
+    items = messages.MessageField(ScoreForm, 1, repeated=True)
 
 
 class StringMessage(messages.Message):
