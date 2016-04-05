@@ -13,7 +13,7 @@ from google.appengine.api import taskqueue
 
 from models import User, Game, Score
 from models import NewGameForm, GameForm, StringMessage, MakeMoveForm, GameForms
-from models import ScoreForms, GameHistoryForm
+from models import ScoreForms, GameHistoryForm, UserForm, UserForms
 from utils import get_by_urlsafe
 
 NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
@@ -90,7 +90,7 @@ class TicTacToeApi(remote.Service):
                       name='get_user_games',
                       http_method='GET')
     def get_user_games(self, request):
-        """Returns the games the user is associated with"""
+        """Returns the active games the user is associated with"""
         user = User.query(User.name==request.user_name).get()
         if user:
             my_games = Game.query(ndb.AND(Game.game_over==False, Game.is_cancelled==False, ndb.OR(Game.player_x==user.key, Game.player_o==user.key))).fetch()
@@ -108,7 +108,7 @@ class TicTacToeApi(remote.Service):
                       name='get_user_completed_games',
                       http_method='GET')
     def get_user_completed_games(self, request):
-        """Returns the games the user is associated with"""
+        """Returns the games the user has completed"""
         user = User.query(User.name==request.user_name).get()
         if user:
             my_games = Game.query(ndb.AND(Game.game_over==True, Game.is_cancelled==False, ndb.OR(Game.player_x==user.key, Game.player_o==user.key))).fetch()
@@ -126,7 +126,7 @@ class TicTacToeApi(remote.Service):
                       name='get_user_win_percent',
                       http_method='GET')
     def get_user_win_percent(self, request):
-        """Returns the games the user is associated with"""
+        """Returns the win percent of the given user"""
         user = User.query(User.name==request.user_name).get()
         if user:
             print(user.name)
@@ -138,6 +138,14 @@ class TicTacToeApi(remote.Service):
                 return StringMessage(message="User has not played any games yet.")
         else:
             raise endpoints.BadRequestException('User does not exist')
+
+    @endpoints.method(response_message=UserForms,
+                      path='get_user_ranking',
+                      name='get_user_ranking',
+                      http_method='GET')
+    def get_user_ranking(self, request):
+        """Returns the ranking of all the users based on win percentage"""
+        return UserForms(users=[user.to_form() for user in User.query().order(-User.win_percent)])
 
     @endpoints.method(request_message=MAKE_MOVE_REQUEST,
                       response_message=GameForm,

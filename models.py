@@ -12,7 +12,15 @@ class User(ndb.Model):
     name = ndb.StringProperty(required=True)
     #  Email is an optional field for User
     email = ndb.StringProperty()
+    win_percent = ndb.FloatProperty(required=True, default=0)
     # score = ndb.IntegerProperty(default=0)
+
+    def to_form(self):
+        '''Returns a UserForm representation of User'''
+        form = UserForm()
+        form.name = self.name
+        form.win_percent = self.win_percent
+        return form
 
     def __eq__(self, other) :
         return self.__dict__ == other.__dict__
@@ -59,6 +67,17 @@ class Game(ndb.Model):
         the player lost."""
         self.game_over = True
         self.put()
+        users = []
+        users.append(winner_key.get())
+        users.append(loser_key.get())
+        for user in users:
+            games_played = Game.query(ndb.AND(Game.game_over==True, ndb.OR(Game.player_x==user.key, Game.player_o==user.key))).count()
+            games_won = Game.query(ndb.AND(Game.game_over==True, Game.winner==user.name)).count()
+            if games_played > 0:
+                user.win_percent = (games_won/float(games_played) * 100)
+                user.put()
+            # else:
+            #     return StringMessage(message="User has not played any games yet.")
         # Add the game to the score 'board'
         if won:
             score = Score(user=winner_key, date=date.today(), won=won,
@@ -105,6 +124,15 @@ class GameForm(messages.Message):
     player_o = messages.StringField(6)
     urlsafe_key = messages.StringField(7)
     message = messages.StringField(8, required=True)
+
+class UserForm(messages.Message):
+    '''UserForm for sending user ranking information'''
+    name = messages.StringField(1, required=True)
+    win_percent = messages.FloatField(2, required=True)
+
+class UserForms(messages.Message):
+    '''UserForms for returning multiple UserForms'''
+    users = messages.MessageField(UserForm, 1, repeated=True)
 
 class GameForms(messages.Message):
     """Return multiple GameForms"""

@@ -14,3 +14,9 @@ indexes:
   properties:
   - name: game_over
   - name: user
+
+- kind: User
+  properties:
+  - name: name
+  - name: win_percent
+    direction: desc
