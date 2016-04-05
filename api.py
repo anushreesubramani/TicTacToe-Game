@@ -11,7 +11,8 @@ from google.appengine.api import memcache
 from google.appengine.api import taskqueue
 
 from models import User, Game, Score
-from models import NewGameForm, GameForm, StringMessage, MakeMoveForm, ScoreForms
+from models import NewGameForm, GameForm, StringMessage, MakeMoveForm, GameForms
+from models import ScoreForms, GameHistoryForm
 from utils import get_by_urlsafe
 
 NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
@@ -21,6 +22,7 @@ MAKE_MOVE_REQUEST = endpoints.ResourceContainer(MakeMoveForm,
                     urlsafe_game_key=messages.StringField(1),)
 USER_REQUEST = endpoints.ResourceContainer(user_name=messages.StringField(1),
                                            email=messages.StringField(2))
+USERNAME_REQUEST = endpoints.ResourceContainer(user_name=messages.StringField(1))
 
 MEMCACHE_MOVES_REMAINING = 'MOVES_REMAINING'
 
@@ -81,6 +83,43 @@ class TicTacToeApi(remote.Service):
         else:
             raise endpoints.NotFoundException('Game not found!')
 
+    @endpoints.method(request_message=USERNAME_REQUEST,
+                      response_message=GameForms,
+                      path='game',
+                      name='get_user_games',
+                      http_method='GET')
+    def get_user_games(self, request):
+        """Returns the games the user is associated with"""
+        user = User.query(User.name==request.user_name).get()
+        if user:
+            my_games = Game.query((Game.player_x==user.key or Game.player_o==user.key) and Game.game_over==False).fetch()
+            if my_games:
+                for game in my_games:
+                return GameForms(items=[game.to_form(message="Active Game details") for game in my_games])
+            else:
+                return GameForms(items=[Game(message='There are no active games for this user.')])
+        else:
+            raise endpoints.BadRequestException('User does not exist')
+
+    @endpoints.method(request_message=USERNAME_REQUEST,
+                      response_message=GameForms,
+                      path='game',
+                      name='get_user_games',
+                      http_method='GET')
+    def get_user_games(self, request):
+        """Returns the games the user is associated with"""
+        user = User.query(User.name==request.user_name).get()
+        if user:
+            games_played = Game.query((Game.player_x==user.key or Game.player_o==user.key) and Game.game_over==True).count()
+            games_won = Game.query((Game.winner==user.key) and Game.game_over==True).count()
+            if games_played > 0:
+                for game in my_games:
+                return GameForms(items=[game.to_form(message="Active Game details") for game in my_games])
+            else:
+                return GameForms(items=[Game(message='There are no active games for this user.')])
+        else:
+            raise endpoints.BadRequestException('User does not exist')
+
     @endpoints.method(request_message=MAKE_MOVE_REQUEST,
                       response_message=GameForm,
                       path='game/{urlsafe_game_key}',
@@ -91,6 +130,8 @@ class TicTacToeApi(remote.Service):
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
         if game.game_over:
             return game.to_form('Game already over!')
+        if game.is_cancelled:
+            return game.to_form('Sorry but this game has been cancelled.')
 
         win_combinations = [
           # horizontal
@@ -108,7 +149,8 @@ class TicTacToeApi(remote.Service):
 
         if request.move not in range(1, 10):
             raise endpoints.BadRequestException('Wrong move. Move should be within 1 to 9')
-
+        history = {}
+        symbol = ''
         game.number_of_moves += 1
         if game.board[request.move - 1] == '-':
             if game.player_x.get().name == request.player_name:
@@ -124,25 +166,34 @@ class TicTacToeApi(remote.Service):
             else:
                 raise endpoints.BadRequestException('Your not a valid player for this game')
 
+            history['Player'] = symbol
+            history['Move'] = request.move
+            history['Result'] = 'None'
+
             if game.number_of_moves >= 5:
                 for combination in win_combinations:
                     if len(set(indices).intersection(combination)) == 3:
                         game.winner = request.player_name
                         game.next_turn = ""
+                        history['Result'] = "Win! Game Over."
                         if current_player_key == game.player_x:
+                            game.history.append(history)
                             game.end_game(current_player_key, game.player_o, True)
                         else:
+                            game.history.append(history)
                             game.end_game(game.player_o, current_player_key, True)
-                        return game.to_form('Congrats! You have won!')
+                        return game.to_form('Congrats ! You have won!')
 
         else:
             raise endpoints.BadRequestException('Illegal move. That move has already been made')
 
         if game.number_of_moves == 9:
             game.message = "Game over. It was a tie!"
+            history['Result'] = "Game over. It was a tie!"
             game.next_turn = ""
             game.end_game(game.player_x, game.player_o, False)
 
+        game.history.append(history)
         game.put()
         return game.to_form('Come on, You can win this! Give it your best shot!')
 
@@ -157,6 +208,31 @@ class TicTacToeApi(remote.Service):
         else:
             raise endpoints.BadRequestException('This is not your turn!')
 
+    @endpoints.method(request_message=GET_GAME_REQUEST,
+                      response_message=GameHistoryForm,
+                      path='games/game_history',
+                      name='game_history',
+                      http_method='GET')
+    def game_history(self, request):
+        '''Returns the game history '''
+        game = get_by_urlsafe(request.urlsafe_game_key, Game)
+        return GameHistoryForm(game_history=','.join(str(element) for element in game.history))
+
+    @endpoints.method(request_message=GET_GAME_REQUEST,
+                      response_message=StringMessage,
+                      path='games/cancel',
+                      name='cancel_game',
+                      http_method='GET')
+    def cancel_game(self, request):
+        '''Cancels an ongoing game. Cannot cancel completed games'''
+        game = get_by_urlsafe(request.urlsafe_game_key, Game)
+        if not game.game_over:
+            game.is_cancelled = True
+            game.put()
+            return StringMessage(message='The game is cancelled.')
+        else:
+            raise endpoints.BadRequestException('Sorry, cannot cancel \
+                                                completed games.')
 
     @endpoints.method(response_message=ScoreForms,
                       path='scores',

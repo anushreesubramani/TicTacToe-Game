@@ -44,7 +44,6 @@ class UpdateAverageMovesRemaining(webapp2.RequestHandler):
         TicTacToeApi._cache_average_moves()
         self.response.set_status(204)
 
-
 app = webapp2.WSGIApplication([
     ('/crons/send_reminder', SendReminderEmail),
     ('/tasks/cache_average_moves', UpdateAverageMovesRemaining),

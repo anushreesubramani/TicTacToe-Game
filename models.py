@@ -27,6 +27,8 @@ class Game(ndb.Model):
     player_x = ndb.KeyProperty(required=True, kind='User')
     player_o = ndb.KeyProperty(required=True, kind='User')
     number_of_moves = ndb.IntegerProperty(required=True, default=0)
+    history = ndb.JsonProperty(required=True, default=[])
+    is_cancelled = ndb.BooleanProperty(required=True, default=False)
 
 
     @classmethod
@@ -59,19 +61,20 @@ class Game(ndb.Model):
         self.put()
         # Add the game to the score 'board'
         if won:
-            score_x = Score(user=winner_key, date=date.today(), won=won,
-                          number_of_moves=self.number_of_moves)
-            score_o = Score(user=loser_key, date=date.today(), won=False,
-                          number_of_moves=self.number_of_moves)
-        else:
-            # This is in case of a tie. There is no winner.
-            # Consider Both of them to lose.
-            score_x = Score(user=winner_key, date=date.today(), won=False,
-                          number_of_moves=self.number_of_moves)
-            score_o = Score(user=loser_key, date=date.today(), won=False,
-                          number_of_moves=self.number_of_moves)
-        score_x.put()
-        score_o.put()
+            score = Score(user=winner_key, date=date.today(), won=won,
+                          number_of_moves=self.number_of_moves,
+                          score=(6 - self.number_of_moves))
+            # score_o = Score(user=loser_key, date=date.today(), won=False,
+            #               number_of_moves=self.number_of_moves)
+        # else:
+        #     # This is in case of a tie. There is no winner.
+        #     # Consider Both of them to lose.
+        #     score_x = Score(user=winner_key, date=date.today(), won=False,
+        #                   number_of_moves=self.number_of_moves)
+        #     score_o = Score(user=loser_key, date=date.today(), won=False,
+        #                   number_of_moves=self.number_of_moves)
+        score.put()
+        # score_o.put()
 
 
 class Score(ndb.Model):
@@ -82,11 +85,13 @@ class Score(ndb.Model):
     date = ndb.DateProperty(required=True)
     won = ndb.BooleanProperty(required=True)
     number_of_moves = ndb.IntegerProperty(required=True, default=0)
+    score = ndb.IntegerProperty(required=True, default=0)
 
     def to_form(self):
         return ScoreForm(user_name=self.user.get().name, date=str(self.date),
                          won=self.won,
-                         number_of_moves=self.number_of_moves)
+                         number_of_moves=self.number_of_moves,
+                         score=self.score)
 
 
 class GameForm(messages.Message):
@@ -100,6 +105,14 @@ class GameForm(messages.Message):
     player_o = messages.StringField(6, required=True)
     urlsafe_key = messages.StringField(7, required=True)
     message = messages.StringField(8, required=True)
+
+class GameForms(messages.Message):
+    """Return multiple GameForms"""
+    items = messages.MessageField(GameForm, 1, repeated=True)
+
+class GameHistoryForm(messages.Message):
+    '''Used to send the Game History information'''
+    game_history = messages.StringField(1, required=True)
 
 
 class NewGameForm(messages.Message):
@@ -120,6 +133,7 @@ class ScoreForm(messages.Message):
     date = messages.StringField(2, required=True)
     won = messages.BooleanField(3, required=True)
     number_of_moves = messages.IntegerField(4, required=True)
+    score = messages.IntegerField(5, required=True)
 
 
 class ScoreForms(messages.Message):
