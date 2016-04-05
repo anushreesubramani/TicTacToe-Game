@@ -7,13 +7,14 @@ from datetime import date
 from protorpc import messages
 from google.appengine.ext import ndb
 
+
 class User(ndb.Model):
+
     """User profile"""
     name = ndb.StringProperty(required=True)
     #  Email is an optional field for User
     email = ndb.StringProperty()
     win_percent = ndb.FloatProperty(required=True, default=0.0)
-    # score = ndb.IntegerProperty(default=0)
 
     def to_form(self):
         '''Returns a UserForm representation of User'''
@@ -22,22 +23,23 @@ class User(ndb.Model):
         form.win_percent = self.win_percent
         return form
 
-    def __eq__(self, other) :
+    def __eq__(self, other):
         return self.__dict__ == other.__dict__
 
 
 class Game(ndb.Model):
+
     """Game object"""
     winner = ndb.StringProperty(required=True, default="")
     next_turn = ndb.StringProperty(required=True, default="")
     game_over = ndb.BooleanProperty(required=True, default=False)
-    board = ndb.JsonProperty(required=True, default=['-','-','-','-','-','-','-','-','-'])
+    board = ndb.JsonProperty(
+        required=True, default=['-', '-', '-', '-', '-', '-', '-', '-', '-'])
     player_x = ndb.KeyProperty(required=True, kind='User')
     player_o = ndb.KeyProperty(required=True, kind='User')
     number_of_moves = ndb.IntegerProperty(required=True, default=0)
     history = ndb.JsonProperty(required=True, default=[])
     is_cancelled = ndb.BooleanProperty(required=True, default=False)
-
 
     @classmethod
     def new_game(cls, player_x, player_o, next_turn):
@@ -72,8 +74,12 @@ class Game(ndb.Model):
         users.append(loser_key.get())
         print("above loop")
         for user in users:
-            games_played = Game.query(ndb.AND(Game.game_over==True, ndb.OR(Game.player_x==user.key, Game.player_o==user.key))).count()
-            games_won = Game.query(ndb.AND(Game.game_over==True, Game.winner==user.name)).count()
+            games_played = Game.query(ndb.AND(Game.game_over == True, ndb.OR(\
+                Game.player_x == user.key, Game.player_o == \
+                user.key))).count()
+            games_won = Game.query(\
+                ndb.AND(Game.game_over == True, Game.winner == \
+                user.name)).count()
             if games_played > 0:
                 print("comes here")
                 user.win_percent = (games_won/float(games_played) * 100)
@@ -81,6 +87,7 @@ class Game(ndb.Model):
 
 
 class GameForm(messages.Message):
+
     """GameForm for outbound game state information"""
 
     game_over = messages.BooleanField(1)
@@ -92,35 +99,47 @@ class GameForm(messages.Message):
     urlsafe_key = messages.StringField(7)
     message = messages.StringField(8, required=True)
 
+
 class UserForm(messages.Message):
+
     '''UserForm for sending user ranking information'''
     name = messages.StringField(1, required=True)
     win_percent = messages.FloatField(2, required=True)
 
+
 class UserForms(messages.Message):
+
     '''UserForms for returning multiple UserForms'''
     users = messages.MessageField(UserForm, 1, repeated=True)
 
+
 class GameForms(messages.Message):
+
     """Return multiple GameForms"""
     items = messages.MessageField(GameForm, 1, repeated=True)
 
+
 class GameHistoryForm(messages.Message):
+
     '''Used to send the Game History information'''
     game_history = messages.StringField(1, required=True)
 
 
 class NewGameForm(messages.Message):
+
     """Used to create a new game"""
     player_x = messages.StringField(1, required=True)
     player_o = messages.StringField(2, required=True)
 
 
 class MakeMoveForm(messages.Message):
+
     """Used to make a move in an existing game"""
     move = messages.IntegerField(1, required=True)
     player_name = messages.StringField(2, required=True)
 
+
 class StringMessage(messages.Message):
+
     """StringMessage-- outbound (single) string message"""
     message = messages.StringField(1, required=True)
