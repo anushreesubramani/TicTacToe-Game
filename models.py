@@ -12,7 +12,7 @@ class User(ndb.Model):
     name = ndb.StringProperty(required=True)
     #  Email is an optional field for User
     email = ndb.StringProperty()
-    win_percent = ndb.FloatProperty(required=True, default=0)
+    win_percent = ndb.FloatProperty(required=True, default=0.0)
     # score = ndb.IntegerProperty(default=0)
 
     def to_form(self):
@@ -70,47 +70,14 @@ class Game(ndb.Model):
         users = []
         users.append(winner_key.get())
         users.append(loser_key.get())
+        print("above loop")
         for user in users:
             games_played = Game.query(ndb.AND(Game.game_over==True, ndb.OR(Game.player_x==user.key, Game.player_o==user.key))).count()
             games_won = Game.query(ndb.AND(Game.game_over==True, Game.winner==user.name)).count()
             if games_played > 0:
+                print("comes here")
                 user.win_percent = (games_won/float(games_played) * 100)
                 user.put()
-            # else:
-            #     return StringMessage(message="User has not played any games yet.")
-        # Add the game to the score 'board'
-        if won:
-            score = Score(user=winner_key, date=date.today(), won=won,
-                          number_of_moves=self.number_of_moves,
-                          score=(6 - self.number_of_moves))
-            # score_o = Score(user=loser_key, date=date.today(), won=False,
-            #               number_of_moves=self.number_of_moves)
-        # else:
-        #     # This is in case of a tie. There is no winner.
-        #     # Consider Both of them to lose.
-        #     score_x = Score(user=winner_key, date=date.today(), won=False,
-        #                   number_of_moves=self.number_of_moves)
-        #     score_o = Score(user=loser_key, date=date.today(), won=False,
-        #                   number_of_moves=self.number_of_moves)
-        score.put()
-        # score_o.put()
-
-
-class Score(ndb.Model):
-    """Score object"""
-    user = ndb.KeyProperty(required=True, kind='User')
-    # user = ndb.StringProperty(required=True)
-    # game = ndb.KeyProperty(required=True, kind='Game')
-    date = ndb.DateProperty(required=True)
-    won = ndb.BooleanProperty(required=True)
-    number_of_moves = ndb.IntegerProperty(required=True, default=0)
-    score = ndb.IntegerProperty(required=True, default=0)
-
-    def to_form(self):
-        return ScoreForm(user_name=self.user.get().name, date=str(self.date),
-                         won=self.won,
-                         number_of_moves=self.number_of_moves,
-                         score=self.score)
 
 
 class GameForm(messages.Message):
@@ -153,21 +120,6 @@ class MakeMoveForm(messages.Message):
     """Used to make a move in an existing game"""
     move = messages.IntegerField(1, required=True)
     player_name = messages.StringField(2, required=True)
-
-
-class ScoreForm(messages.Message):
-    """ScoreForm for outbound Score information"""
-    user_name = messages.StringField(1, required=True)
-    date = messages.StringField(2, required=True)
-    won = messages.BooleanField(3, required=True)
-    number_of_moves = messages.IntegerField(4, required=True)
-    score = messages.IntegerField(5, required=True)
-
-
-class ScoreForms(messages.Message):
-    """Return multiple ScoreForms"""
-    items = messages.MessageField(ScoreForm, 1, repeated=True)
-
 
 class StringMessage(messages.Message):
     """StringMessage-- outbound (single) string message"""

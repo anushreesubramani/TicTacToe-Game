@@ -38,13 +38,6 @@ class SendReminderEmail(webapp2.RequestHandler):
                                body)
 
 
-class UpdateAverageMovesRemaining(webapp2.RequestHandler):
-    def post(self):
-        """Update game listing announcement in memcache."""
-        TicTacToeApi._cache_average_moves()
-        self.response.set_status(204)
-
 app = webapp2.WSGIApplication([
     ('/crons/send_reminder', SendReminderEmail),
-    ('/tasks/cache_average_moves', UpdateAverageMovesRemaining),
 ], debug=True)
