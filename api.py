@@ -6,6 +6,7 @@ primarily with communication to/from the API's users."""
 
 import logging
 import endpoints
+from google.appengine.ext import ndb
 from protorpc import remote, messages
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
@@ -92,31 +93,49 @@ class TicTacToeApi(remote.Service):
         """Returns the games the user is associated with"""
         user = User.query(User.name==request.user_name).get()
         if user:
-            my_games = Game.query((Game.player_x==user.key or Game.player_o==user.key) and Game.game_over==False).fetch()
+            my_games = Game.query(ndb.AND(Game.game_over==False, Game.is_cancelled==False, ndb.OR(Game.player_x==user.key, Game.player_o==user.key))).fetch()
             if my_games:
                 for game in my_games:
-                return GameForms(items=[game.to_form(message="Active Game details") for game in my_games])
+                    return GameForms(items=[game.to_form(message="Active Game details") for game in my_games])
             else:
-                return GameForms(items=[Game(message='There are no active games for this user.')])
+                raise endpoints.NotFoundException('There are no active games for this user.')
         else:
             raise endpoints.BadRequestException('User does not exist')
 
     @endpoints.method(request_message=USERNAME_REQUEST,
                       response_message=GameForms,
-                      path='game',
-                      name='get_user_games',
+                      path='get_user_completed_games',
+                      name='get_user_completed_games',
                       http_method='GET')
-    def get_user_games(self, request):
+    def get_user_completed_games(self, request):
         """Returns the games the user is associated with"""
         user = User.query(User.name==request.user_name).get()
         if user:
-            games_played = Game.query((Game.player_x==user.key or Game.player_o==user.key) and Game.game_over==True).count()
-            games_won = Game.query((Game.winner==user.key) and Game.game_over==True).count()
-            if games_played > 0:
+            my_games = Game.query(ndb.AND(Game.game_over==True, Game.is_cancelled==False, ndb.OR(Game.player_x==user.key, Game.player_o==user.key))).fetch()
+            if my_games:
                 for game in my_games:
-                return GameForms(items=[game.to_form(message="Active Game details") for game in my_games])
+                    return GameForms(items=[game.to_form(message="Completed Game details") for game in my_games])
             else:
-                return GameForms(items=[Game(message='There are no active games for this user.')])
+                raise endpoints.NotFoundException('This user has not completed any game yet.')
+        else:
+            raise endpoints.BadRequestException('User does not exist')
+
+    @endpoints.method(request_message=USERNAME_REQUEST,
+                      response_message=StringMessage,
+                      path='user_win_percent',
+                      name='get_user_win_percent',
+                      http_method='GET')
+    def get_user_win_percent(self, request):
+        """Returns the games the user is associated with"""
+        user = User.query(User.name==request.user_name).get()
+        if user:
+            print(user.name)
+            games_played = Game.query(ndb.AND(Game.game_over==True, ndb.OR(Game.player_x==user.key, Game.player_o==user.key))).count()
+            games_won = Game.query(ndb.AND(Game.game_over==True, Game.winner==user.name)).count()
+            if games_played > 0:
+                return StringMessage(message="Win Percentage is: {}% ".format(games_won/float(games_played) * 100))
+            else:
+                return StringMessage(message="User has not played any games yet.")
         else:
             raise endpoints.BadRequestException('User does not exist')
 
@@ -168,7 +187,7 @@ class TicTacToeApi(remote.Service):
 
             history['Player'] = symbol
             history['Move'] = request.move
-            history['Result'] = 'None'
+            history['Result'] = "Move made"
 
             if game.number_of_moves >= 5:
                 for combination in win_combinations:
@@ -231,8 +250,8 @@ class TicTacToeApi(remote.Service):
             game.put()
             return StringMessage(message='The game is cancelled.')
         else:
-            raise endpoints.BadRequestException('Sorry, cannot cancel \
-                                                completed games.')
+            raise endpoints.BadRequestException('Sorry, cannot cancel'+
+                                                ' completed games.')
 
     @endpoints.method(response_message=ScoreForms,
                       path='scores',
@@ -242,7 +261,7 @@ class TicTacToeApi(remote.Service):
         """Return all scores"""
         return ScoreForms(items=[score.to_form() for score in Score.query()])
 
-    @endpoints.method(request_message=USER_REQUEST,
+    @endpoints.method(request_message=USERNAME_REQUEST,
                       response_message=ScoreForms,
                       path='scores/user/{user_name}',
                       name='get_user_scores',

@@ -97,13 +97,13 @@ class Score(ndb.Model):
 class GameForm(messages.Message):
     """GameForm for outbound game state information"""
 
-    game_over = messages.BooleanField(1, required=True)
-    winner = messages.StringField(2, required=True)
-    board = messages.StringField(3, required=True)
-    next_turn = messages.StringField(4, required=True)
-    player_x = messages.StringField(5, required=True)
-    player_o = messages.StringField(6, required=True)
-    urlsafe_key = messages.StringField(7, required=True)
+    game_over = messages.BooleanField(1)
+    winner = messages.StringField(2)
+    board = messages.StringField(3)
+    next_turn = messages.StringField(4)
+    player_x = messages.StringField(5)
+    player_o = messages.StringField(6)
+    urlsafe_key = messages.StringField(7)
     message = messages.StringField(8, required=True)
 
 class GameForms(messages.Message):
