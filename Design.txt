@@ -1,0 +1,12 @@
+What additional properties did you add to your models and why?
+
+I started out with a very simple model with minimal and basic attributes. Then, as I started progressing with the api development, I added a bunch of additional properties to my models like history, is_cancelled, number_of_moves etc to store more data related to that particular model and accommodate that feature.
+
+What were some of the trade-offs or struggles you faced when implementing the new game logic?
+
+Well, to start off I was not able to decide what type of game I wanted to build. I was torn between a couple of game ideas and then once I finalized on a game, I was again confused about the single player vs 2 player approach. I initially thought of building a single player tictactoe game and started coding. I was able to code to a certain extent but I was not happy with the end result ( the AI is supposed to be very intelligent. Mine was not that smart as a user could easily win against my AI. I was only able to code for couple of scenarios. Beyond that there were still a bunch of move combinations possible and I could have coded it too but not in an elegant fashion. My code would have been a big mess of if-else statements. I wanted to code I felt thats not good so I scratched it and started building a two player game instead).
+
+Another place where I had a little speed bump was that I couldn’t foresee the input and output of my endpoints that my new game, tictactoe would need right at the start of the coding process. I couldnt wrap my head around it as I was still not very clear as to how or what logic I was going to use to code it. The parameters etc will vary largely based on it. Then, I understood the importance of doing a clear design of my models and then used the sample app’s api endpoints as reference and guided my thought process with it. This was one of the lightbulb moments while coding the game and I absolutely loved it.
+
+Another one of the concerns I had was that I felt GAE documentation didnot suffice in a scenario where I was really confused and I had to break my head a lot over it. Ended up spending too much time on simple task because of it.
+
