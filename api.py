@@ -102,7 +102,7 @@ class TicTacToeApi(remote.Service):
                 raise endpoints.NotFoundException(
                     'There are no active games for this user.')
         else:
-            raise endpoints.BadRequestException('User does not exist')
+            raise endpoints.NotFoundException('User does not exist')
 
     @endpoints.method(request_message=USERNAME_REQUEST,
                       response_message=GameForms,
@@ -124,7 +124,7 @@ class TicTacToeApi(remote.Service):
                 raise endpoints.NotFoundException(
                     'This user has not completed any game yet.')
         else:
-            raise endpoints.BadRequestException('User does not exist')
+            raise endpoints.NotFoundException('User does not exist')
 
     @endpoints.method(request_message=USERNAME_REQUEST,
                       response_message=StringMessage,
@@ -147,7 +147,7 @@ class TicTacToeApi(remote.Service):
             else:
                 return StringMessage(message="User hasnt played any games yet")
         else:
-            raise endpoints.BadRequestException('User does not exist')
+            raise endpoints.NotFoundException('User does not exist')
 
     @endpoints.method(response_message=UserForms,
                       path='get_user_ranking',
@@ -254,6 +254,7 @@ class TicTacToeApi(remote.Service):
         '''Mark the board with X or O appropriately'''
         if game.next_turn == request.player_name:
             game.board[request.move - 1] = symbol
+            # finding out the indices where the player has made all his moves
             indices = [i for i, j in enumerate(game.board) if j == symbol]
             next_player_key = getattr(game, next_player)
             game.next_turn = next_player_key.get().name
@@ -276,7 +277,7 @@ class TicTacToeApi(remote.Service):
                       response_message=StringMessage,
                       path='games/cancel',
                       name='cancel_game',
-                      http_method='GET')
+                      http_method='PUT')
     def cancel_game(self, request):
         '''Cancels an ongoing game. Cannot cancel completed games'''
         game = get_by_urlsafe(request.urlsafe_game_key, Game)

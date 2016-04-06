@@ -83,6 +83,7 @@ class Game(ndb.Model):
             if games_played > 0:
                 print("comes here")
                 user.win_percent = (games_won/float(games_played) * 100)
+                print(type(user.win_percent))
                 user.put()
 
 
