@@ -1,5 +1,8 @@
 #TicTacToe - 2 Player game
 
+The application is deployed in Google Cloud and it can be accessed at:
+https://apis-explorer.appspot.com/apis-explorer/?base=https://sylvan-ocean-126613.appspot.com/_ah/api#p/tictactoe/v1/
+
 ## Set-Up Instructions:
 1.  Update the value of application in app.yaml to the app ID you have registered
  in the App Engine admin console and would like to use to host your instance of this sample.
