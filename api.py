@@ -1,8 +1,4 @@
-"""api.py - Create and configure the Game API exposing the resources.
-This can also contain game logic. For more complex games it would be wise to
-move game logic to another file. Ideally the API will be simple, concerned
-primarily with communication to/from the API's users."""
-
+'''api.py - Contains all the api endpoints for playing the TicTacToe game'''
 
 import logging
 import endpoints
@@ -57,10 +53,12 @@ class TicTacToeApi(remote.Service):
         player_o = User.query(User.name == request.player_o).get()
         if not player_x:
             raise endpoints.NotFoundException(
-                'A User with name {} does not exist!'.format(request.player_x))
+                'A User with name {} does not \
+                exist!'.format(request.player_x))
         if not player_o:
             raise endpoints.NotFoundException(
-                'A User with name {} does not exist!'.format(request.player_o))
+                'A User with name {} does not\
+                 exist!'.format(request.player_o))
         if player_x == player_o:
             raise endpoints.BadRequestException('Game can be played by 2'
                                                 ' different players only.')
@@ -115,7 +113,8 @@ class TicTacToeApi(remote.Service):
         if user:
             my_games = Game.query(ndb.AND(Game.game_over == True,
                 Game.is_cancelled == False, ndb.OR(
-                Game.player_x == user.key, Game.player_o == user.key))).fetch()
+                Game.player_x == user.key, Game.player_o == \
+                user.key))).fetch()
             if my_games:
                 for game in my_games:
                     return GameForms(items=[game.to_form(message=\
@@ -137,15 +136,18 @@ class TicTacToeApi(remote.Service):
         if user:
             print(user.name)
             games_played = Game.query(ndb.AND(Game.game_over == True, ndb.OR(
-                Game.player_x == user.key, Game.player_o == user.key))).count()
+                Game.player_x == user.key, Game.player_o == \
+                user.key))).count()
             games_won = Game.query(
                 ndb.AND(Game.game_over == True,
                 Game.winner == user.name)).count()
             if games_played > 0:
-                return StringMessage(message="Win Percentage is: {}% ".format(
+                return StringMessage(message="Win Percentage is: \
+                    {}% ".format(
                     games_won/float(games_played) * 100))
             else:
-                return StringMessage(message="User hasnt played any games yet")
+                return StringMessage(message="User hasnt played \
+                    any games yet")
         else:
             raise endpoints.NotFoundException('User does not exist')
 

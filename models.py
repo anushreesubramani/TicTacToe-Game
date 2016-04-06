@@ -72,7 +72,6 @@ class Game(ndb.Model):
         users = []
         users.append(winner_key.get())
         users.append(loser_key.get())
-        print("above loop")
         for user in users:
             games_played = Game.query(ndb.AND(Game.game_over == True, ndb.OR(\
                 Game.player_x == user.key, Game.player_o == \
@@ -81,7 +80,6 @@ class Game(ndb.Model):
                 ndb.AND(Game.game_over == True, Game.winner == \
                 user.name)).count()
             if games_played > 0:
-                print("comes here")
                 user.win_percent = (games_won/float(games_played) * 100)
                 print(type(user.win_percent))
                 user.put()

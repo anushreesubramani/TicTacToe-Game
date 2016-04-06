@@ -9,7 +9,6 @@
  Deploy your application.
 
 
-
 ##Game Description:
 
 TicTacToe is an API engine based on python and Google App Engine.
